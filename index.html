@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스미싱 탐지기</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar__mark">SMS<span>GUARD</span></div>
+    <p class="topbar__desc">택배·청첩장을 사칭한 스미싱 문자를 붙여넣으면 위험도를 분석합니다</p>
+  </header>
+
+  <main class="panel">
+    <form id="scanForm" class="scanForm">
+      <label for="msgInput" class="scanForm__label">의심되는 문자 메시지 또는 URL</label>
+      <textarea
+        id="msgInput"
+        class="scanForm__input"
+        rows="4"
+        placeholder="예) [국제발신] 해외직구 결제 승인 완료. 본인 아닐 시 확인 요망: http://..."
+        required
+      ></textarea>
+      <button type="submit" class="scanForm__submit" id="submitBtn">검사하기</button>
+    </form>
+
+    <section id="result" class="result result--hidden">
+
+      <div class="verdict" id="verdictBox">
+        <div class="verdict__label" id="verdictLabel">판정 대기</div>
+        <div class="verdict__detail" id="verdictDetail"></div>
+      </div>
+
+      <div class="scores">
+        <div class="scoreCard">
+          <div class="scoreCard__title">AI 텍스트 분석</div>
+          <div class="scoreCard__value" id="mlScore">–</div>
+          <div class="meter"><div class="meter__fill" id="mlMeter"></div></div>
+        </div>
+        <div class="scoreCard">
+          <div class="scoreCard__title">URL 위험도</div>
+          <div class="scoreCard__value" id="urlScore">–</div>
+          <div class="meter"><div class="meter__fill" id="urlMeter"></div></div>
+        </div>
+      </div>
+
+      <div class="urlList" id="urlList"></div>
+
+      <p class="timing" id="timing"></p>
+    </section>
+
+    <p id="errorMsg" class="errorMsg errorMsg--hidden"></p>
+  </main>
+
+  <footer class="foot">
+    <p>백엔드: <code>main.py</code> (FastAPI, <code>POST /diagnose</code>) · 로컬에서 <code>uvicorn main:app --reload</code> 실행 필요</p>
+  </footer>
+
+<script src="script.js"></script>
+</body>
+</html>
