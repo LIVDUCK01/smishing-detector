@@ -1,5 +1,3 @@
-// FastAPI 서버 주소. uvicorn 기본값은 8000번 포트.
-// 서버를 다른 포트/주소로 띄웠다면 여기만 바꾸면 됩니다.
 const API_BASE = "http://127.0.0.1:8000";
 
 const form = document.getElementById("scanForm");
@@ -55,7 +53,7 @@ form.addEventListener("submit", async (e) => {
   } catch (err) {
     showError(
       err.message.includes("Failed to fetch")
-        ? "서버에 연결할 수 없습니다. main.py(uvicorn)가 실행 중인지, API_BASE 주소가 맞는지 확인하세요."
+        ? "서버에 연결할 수 없습니다. main.py(uvicorn)가 실행 중인지 확인하세요."
         : err.message
     );
   } finally {
