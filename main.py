@@ -7,7 +7,7 @@ import joblib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from url_checker import check_message_urls
+from url_checker import check_message_urls, strip_urls_for_ml
 
 # 윈도우 터미널 UTF-8 출력 보정 (콘솔 실행 시 한글 깨짐 방지)
 if sys.platform == "win32":
@@ -73,9 +73,12 @@ def diagnose(req: MessageRequest):
         return {"error": "message가 비어 있습니다."}
 
     # 1) 머신러닝 텍스트 분석
+    # 재학습된 모델은 'URL이 제거된 문구'로 학습됐으므로, 예측할 때도 반드시 동일하게
+    # URL을 지운 텍스트를 넣어야 함 (URL 위험도는 바로 아래 2번 단계가 따로 판단).
     ml_prob = 0.0
     if ml_available:
-        vec_text = vectorizer.transform([msg])
+        text_for_ml = strip_urls_for_ml(msg)
+        vec_text = vectorizer.transform([text_for_ml])
         ml_prob = round(model.predict_proba(vec_text)[0][1] * 100, 1)
 
     # 2) URL 보안 분석
@@ -90,6 +93,8 @@ def diagnose(req: MessageRequest):
     # - 포함된 모든 URL이 VirusTotal에서 malicious=0, suspicious=0으로 확인된 경우
     # → ML 텍스트 모델이 단독으로 "위험" 판정을 내리지 못하도록 상한선을 둔다.
     # (ML 모델이 "URL 존재 여부" 자체에 과민 반응해 정상 URL까지 오탐하는 경향이 있어 추가한 안전장치)
+    # 참고: model.pkl 재학습(10/25) 이후 URL 유무에 대한 과의존 문제는 근본적으로 해결됐지만,
+    # 혹시 모를 경우를 대비해 이 안전장치는 그대로 유지한다.
     url_verified_safe = False
     if has_url and url_score == 0 and url_details:
         url_verified_safe = all(
