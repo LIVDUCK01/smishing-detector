@@ -1,8 +1,4 @@
-// FastAPI 서버 주소. Render에 배포된 주소로 설정 — 이제 팀원들은
-// 서버를 따로 켜지 않아도 index.html만 열면 바로 작동합니다.
-// (로컬에서 직접 테스트하고 싶으면 아래 줄 주석 풀고 Render 줄은 주석 처리)
-// const API_BASE = "https://smishing-detector-91tv.onrender.com";
-const API_BASE = "http://127.0.0.1:8001";
+const API_BASE = "http://127.0.0.1:8000";
 
 const form = document.getElementById("scanForm");
 const input = document.getElementById("msgInput");
@@ -57,7 +53,7 @@ form.addEventListener("submit", async (e) => {
   } catch (err) {
     showError(
       err.message.includes("Failed to fetch")
-        ? "서버에 연결할 수 없습니다. main.py(uvicorn)가 실행 중인지, API_BASE 주소가 맞는지 확인하세요."
+        ? "서버에 연결할 수 없습니다. main.py(uvicorn)가 실행 중인지 확인하세요."
         : err.message
     );
   } finally {
