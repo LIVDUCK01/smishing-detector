@@ -7,8 +7,13 @@ from urllib.parse import urlparse
 import requests
 
 # 윈도우 터미널 UTF-8 출력 보정
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
+try:
+    if sys.stdout.encoding.lower() != 'utf-8':
+        sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+    if sys.stderr.encoding.lower() != 'utf-8':
+        sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
+except Exception:
+    pass
 
 # VirusTotal API 키 설정 (환경 변수 우선, 없으면 아래 문자열 직접 입력)
 VIRUSTOTAL_API_KEY = os.environ.get("VIRUSTOTAL_API_KEY", "여기에_발급받은_VIRUSTOTAL_API_KEY_입력")
@@ -26,8 +31,18 @@ SUSPICIOUS_TLDS = {
     'buzz', 'work', 'tk', 'ml', 'ga', 'cf', 'gq', 'cc'
 }
 
+def strip_urls_for_ml(text: str) -> str:
+    """텍스트 내 URL을 제거하거나 머신러닝 학습/추론용으로 전처리"""
+    if not isinstance(text, str):
+        return ""
+    # URL 패턴을 빈 문자열 또는 특정 토큰으로 치환
+    cleaned_text = URL_PATTERN.sub("[URL]", text)
+    return cleaned_text
+
 def extract_urls(text: str) -> list:
     """본문에서 모든 URL 문자열을 리스트로 추출"""
+    if not isinstance(text, str):
+        return []
     matches = URL_PATTERN.findall(text)
     urls = []
     for url in matches:
@@ -134,14 +149,11 @@ def analyze_url(url: str) -> dict:
     vt_info = ""
 
     # [속도 최적화 조건]
-    # 1. 숫자 IP 주소인 경우 (도메인 조회 API가 불필요하며, 자체 규칙만으로 이미 고위험)
-    # 2. 자체 정적 규칙 점수가 이미 50점 이상(명백한 위험)인 경우
     if is_ip_address(domain):
         vt_info = "숫자 IP 주소 감지로 외부 API 조회 생략 (최적화)"
     elif risk_score >= 50:
         vt_info = "명백한 고위험 패턴 감지로 외부 API 조회 생략 (최적화)"
     else:
-        # 정상 범위/애매한 도메인만 VirusTotal API 호출 (타임아웃 2.0초 제한)
         vt_res = check_virustotal_domain(domain, timeout=2.0)
         if vt_res.get("success"):
             vt_checked = True
@@ -177,6 +189,7 @@ def check_message_urls(text: str) -> dict:
         return {
             "has_url": False,
             "url_count": 0,
+            "max_risk_score": 0,
             "results": []
         }
 

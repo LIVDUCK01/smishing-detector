@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 URL 우선 계층형 판정 서버. 기존 main.py 는 건드리지 않고 이 파일로 따로 실행해 비교한다.
-  uvicorn main_hybrid:app --port 8000
+    uvicorn main_hybrid:app --port 8000
 응답 형식은 main.py 와 같고, link_status / verdict_basis / official_checked 필드가 추가됐다.
 """
 import io, os, sys, time, importlib
@@ -11,22 +11,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # url_checker.py 가 import 될 때 sys.stdout/stderr 를 detach 해 버려서 uvicorn 로그가 사라지는 문제가 있다.
-# 임시 스트림으로 바꿔 둔 채 import 하고 원래 스트림을 되돌린다. (url_checker.py 를 고치면 이 블록은 필요 없다)
+# 임시 스트림으로 바꿔 둔 채 import 하고 원래 스트림을 되돌린다.
 _real_out, _real_err = sys.stdout, sys.stderr
 sys.stdout, sys.stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8'), io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
 try:
     url_checker = importlib.import_module('url_checker')
 finally:
     sys.stdout, sys.stderr = _real_out, _real_err
+
 check_message_urls, strip_urls_for_ml = url_checker.check_message_urls, url_checker.strip_urls_for_ml
 
 from hybrid_logic import decide
 
 app = FastAPI(title="스미싱 실시간 하이브리드 탐지 API (URL 우선)")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=False, 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
 
 MODEL_PATH, VEC_PATH = "model.pkl", "vectorizer.pkl"
-MAX_LEN = 2000                      # 입력 길이 제한(과도한 입력 방지)
+MAX_LEN = 2000      # 입력 길이 제한(과도한 입력 방지)
 ml_available, model, vectorizer, pos_col = False, None, None, 1
 
 if os.path.exists(MODEL_PATH) and os.path.exists(VEC_PATH):
@@ -74,9 +81,15 @@ def diagnose(req: MessageRequest):
         "url_details": details,
         "url_verified_safe": d["link_status"] in ("official", "verified"),   # 기존 필드 호환
         "link_status": d["link_status"],                       # none / dangerous / suspicious / official / verified / unverified
-        "verdict": d["verdict"],                               # 위험 / 주의 / 안전
-        "verdict_basis": d["verdict_basis"],                   # URL / 문구 / URL+문구
+        "verdict": d["verdict"],                                   # 위험 / 주의 / 안전
+        "verdict_basis": d["verdict_basis"],                       # URL / 문구 / URL+문구
         "verdict_detail": d["verdict_detail"],
-        "no_link_notice": not has_url,                         # 프론트에서 '링크 없음 — 문구 기준 참고용' 배지 표시용
+        "no_link_notice": not has_url,                             # 프론트에서 '링크 없음 — 문구 기준 참고용' 배지 표시용
         "response_time_ms": round((time.perf_counter() - start) * 1000, 2),
     }
+
+# 로컬 및 클라우드(Render 등) 동적 포트 바인딩 실행부 추가
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run("main_hybrid:app", host="0.0.0.0", port=port, reload=False)
