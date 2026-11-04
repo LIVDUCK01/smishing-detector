@@ -37,6 +37,17 @@ VT_TIMEOUT = 4  # 초. 너무 길면 /diagnose 응답이 느려지므로 짧게 
 _vt_cache = {}
 
 
+def strip_urls_for_ml(text: str) -> str:
+    """AI 텍스트 모델(model.pkl)에 넣기 전, 문장에서 URL을 완전히 제거.
+
+    URL의 위험도는 이 파일의 analyze_url()/VirusTotal이 따로 판단하므로,
+    텍스트 모델은 URL 유무가 아니라 순수 문구(말투, 긴급성, 계좌/인증 요구 등)만으로
+    판단하도록 역할을 분리한다. (model.pkl 재학습 때와 반드시 동일하게 전처리해야 함 —
+    train_model.py도 이 함수를 그대로 사용함)
+    """
+    return URL_PATTERN.sub(" ", text)
+
+
 def extract_urls(text: str) -> list:
     """본문에서 모든 URL 문자열을 리스트로 추출"""
     matches = URL_PATTERN.findall(text)

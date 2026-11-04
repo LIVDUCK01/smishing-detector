@@ -3,7 +3,7 @@ import io
 import sys
 import os
 import joblib
-from url_checker import check_message_urls
+from url_checker import check_message_urls, strip_urls_for_ml
 
 # 윈도우 터미널 UTF-8 출력 보정
 if sys.platform == "win32":
@@ -42,11 +42,13 @@ while True:
         continue
 
     print("-" * 65)
-    
+
     # 1) 머신러닝 텍스트 분석
+    # 재학습된 모델은 URL이 제거된 문구로 학습됐으므로, 예측 시에도 동일하게 전처리
     ml_prob = 0.0
     if ml_available:
-        vec_text = vectorizer.transform([msg])
+        text_for_ml = strip_urls_for_ml(msg)
+        vec_text = vectorizer.transform([text_for_ml])
         ml_prob = model.predict_proba(vec_text)[0][1] * 100
         print(f"📊 [텍스트 분석] AI 스미싱 의심도 : {ml_prob:.1f}%")
     else:
@@ -56,7 +58,7 @@ while True:
     url_res = check_message_urls(msg)
     url_score = url_res.get("max_risk_score", 0)
     print(f"🔗 [URL 보안분석] 링크 위험도 점수 : {url_score}점 / 100점")
-    
+
     if url_res.get("has_url"):
         for item in url_res.get("results", []):
             print(f"   - 감지된 URL : {item['original_url']}")
@@ -72,6 +74,6 @@ while True:
         verdict = "⚠️ [주의] 확인되지 않은 외부 링크 또는 의심 키워드 포함"
     else:
         verdict = "✅ [안전] 정상 문자메시지로 판단됨"
-        
+
     print(f"👉 종합 진단 결과 : {verdict}")
     print("=" * 65)

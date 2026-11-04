@@ -108,10 +108,6 @@ body {
   opacity: 0.6;
   cursor: progress;
 }
-.scanForm__submit:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: 2px;
-}
 
 .result {
   margin-top: 24px;

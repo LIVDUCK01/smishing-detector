@@ -1,6 +1,8 @@
-// FastAPI 서버 주소. uvicorn 기본값은 8000번 포트.
-// 서버를 다른 포트/주소로 띄웠다면 여기만 바꾸면 됩니다.
-const API_BASE = "http://127.0.0.1:8000";
+// FastAPI 서버 주소. Render에 배포된 주소로 설정 — 이제 팀원들은
+// 서버를 따로 켜지 않아도 index.html만 열면 바로 작동합니다.
+// (로컬에서 직접 테스트하고 싶으면 아래 줄 주석 풀고 Render 줄은 주석 처리)
+// const API_BASE = "https://smishing-detector-91tv.onrender.com";
+const API_BASE = "http://127.0.0.1:8001";
 
 const form = document.getElementById("scanForm");
 const input = document.getElementById("msgInput");
