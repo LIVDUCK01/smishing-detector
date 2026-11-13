@@ -59,8 +59,10 @@ def root():
 
 
 @app.post("/diagnose")
-def diagnose(req: MessageRequest):
-    start = time.perf_counter()
+def diagnose(req: MessageRequest, fast: bool = False):
+    """fast=true 이면 외부 조회(리다이렉트·VirusTotal) 없이 내부 판정만 반환(수십 ms).
+    프론트에서 fast 로 먼저 1차 결과를 보여주고, 이어서 fast=false 로 최종 결과를 갱신하는 2단계 방식에 쓴다."""
+    t0 = time.perf_counter()
     msg = req.message.strip()[:MAX_LEN]
     if not msg:
         return {"error": "message가 비어 있습니다."}
@@ -68,24 +70,35 @@ def diagnose(req: MessageRequest):
     ml_prob = 0.0
     if ml_available:   # 학습 때와 같은 전처리(URL 제거)
         ml_prob = round(model.predict_proba(vectorizer.transform([strip_urls_for_ml(msg)]))[0][pos_col] * 100, 1)
+    t1 = time.perf_counter()
 
-    url_res = check_message_urls(msg)
+    url_res = check_message_urls(msg, network=not fast)
     url_score, has_url, details = url_res.get("max_risk_score", 0), url_res.get("has_url", False), url_res.get("results", [])
+    t2 = time.perf_counter()
+
     d = decide(ml_prob, has_url, url_score, details)
+    t3 = time.perf_counter()
 
     return {
         "message": msg,
         "ml_probability": ml_prob,
         "url_score": url_score,
         "has_url": has_url,
-        "url_details": details,
+        "url_details": details,                                    # 각 URL의 timing_ms / external_mode 포함
         "url_verified_safe": d["link_status"] in ("official", "verified"),   # 기존 필드 호환
         "link_status": d["link_status"],                       # none / dangerous / suspicious / official / verified / unverified
         "verdict": d["verdict"],                                   # 위험 / 주의 / 안전
         "verdict_basis": d["verdict_basis"],                       # URL / 문구 / URL+문구
         "verdict_detail": d["verdict_detail"],
         "no_link_notice": not has_url,                             # 프론트에서 '링크 없음 — 문구 기준 참고용' 배지 표시용
-        "response_time_ms": round((time.perf_counter() - start) * 1000, 2),
+        "provisional": bool(fast and has_url),                     # 1차(내부) 판정 — 외부 검증 전
+        "stage_ms": {                                              # 단계별 서버 처리 시간
+            "ml": round((t1 - t0) * 1000, 1),
+            "url": round((t2 - t1) * 1000, 1),
+            "decide": round((t3 - t2) * 1000, 2),
+            "total": round((t3 - t0) * 1000, 1),
+        },
+        "response_time_ms": round((t3 - t0) * 1000, 2),            # 기존 필드 호환
     }
 
 # 로컬 및 클라우드(Render 등) 동적 포트 바인딩 실행부 추가
