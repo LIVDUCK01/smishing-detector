@@ -7,4 +7,4 @@ __pycache__/
 .env
 
 # 윈도우 폴더 설정 파일
-desktop.in
+desktop.ini
