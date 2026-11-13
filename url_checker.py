@@ -298,7 +298,7 @@ def check_virustotal_domain(domain: str, timeout: float = 0.5) -> dict:
 # 4. 핵심 4-Layer 정밀 검증 엔진
 # ==============================================================================
 
-def analyze_url(url: str) -> dict:
+def analyze_url(url: str, network: bool = True) -> dict:
     """개별 URL 보안 분석 (4-Layer 정적 엔진 + 화이트리스트 + RDAP 도메인 연령 + 조건부 VT 연동)"""
     analysis_start = time.perf_counter()
     decoded_raw_url = unquote(url)
@@ -318,16 +318,18 @@ def analyze_url(url: str) -> dict:
             "risk_factors": ["공식 인증 도메인 화이트리스트 통과"],
             "vt_checked": False,
             "vt_info": "공식 화이트리스트 조기 통과로 외부 API 조회 생략",
-            "latency_ms": total_latency
+            "latency_ms": total_latency,
+            "timing_ms": total_latency,
+            "external_mode": "network" if network else "offline"
         }
 
-    # 단축 URL일 때만 리다이렉트 추적
+    # 단축 URL일 때만 리다이렉트 추적 (fast 모드에서는 생략)
     is_known_shortener = (
         initial_host in SHORTENER_DOMAINS or 
         any(initial_host.endswith('.' + s) for s in SHORTENER_DOMAINS)
     )
 
-    if is_known_shortener:
+    if is_known_shortener and network:
         final_url = resolve_redirect(decoded_raw_url, timeout=1.0)
     else:
         final_url = decoded_raw_url
@@ -443,6 +445,8 @@ def analyze_url(url: str) -> dict:
 
     if is_ip_address(host):
         vt_info = "숫자 IP 주소 감지로 외부 API 조회 생략 (최적화)"
+    elif not network:
+        vt_info = "1차 빠른 분석 모드 (외부 조회 생략)"
     elif risk_score >= 50:
         vt_info = "자체 4-Layer 고위험 패턴 감지로 외부 API 조회 생략 (최적화)"
     else:
@@ -492,11 +496,13 @@ def analyze_url(url: str) -> dict:
         "risk_factors": risk_factors,
         "vt_checked": vt_checked,
         "vt_info": vt_info,
-        "latency_ms": total_latency
+        "latency_ms": total_latency,
+        "timing_ms": total_latency,
+        "external_mode": "network" if network else "offline"
     }
 
 
-def check_message_urls(text: str) -> dict:
+def check_message_urls(text: str, network: bool = True) -> dict:
     """문자 메시지 전체 URL 추출 및 종합 위험도 평가"""
     start_all = time.perf_counter()
     urls = extract_urls(text)
@@ -510,7 +516,7 @@ def check_message_urls(text: str) -> dict:
             "total_latency_ms": round((time.perf_counter() - start_all) * 1000, 2)
         }
 
-    results = [analyze_url(u) for u in urls]
+    results = [analyze_url(u, network=network) for u in urls]
     max_risk = max(r["risk_score"] for r in results)
 
     return {
