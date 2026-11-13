@@ -25,10 +25,10 @@ from hybrid_logic import decide
 
 app = FastAPI(title="스미싱 실시간 하이브리드 탐지 API (URL 우선)")
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_credentials=False, 
-    allow_methods=["*"], 
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"]
 )
 
@@ -71,7 +71,7 @@ def diagnose(req: MessageRequest):
 
     url_res = check_message_urls(msg)
     url_score, has_url, details = url_res.get("max_risk_score", 0), url_res.get("has_url", False), url_res.get("results", [])
-    d = decide(ml_prob, has_url, url_score, details)
+    d = decide(ml_prob, has_url, url_score, details, text=msg)
 
     return {
         "message": msg,

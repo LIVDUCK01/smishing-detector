@@ -10,18 +10,18 @@ import argparse, importlib.util, io, os, re, sys
 import pandas as pd, joblib
 from hybrid_logic import decide
 
-# A: '기존 단순 키워드 필터링' 가정용 단어 목록 (일반적인 스팸 필터가 쓰는 수준으로 가정한 것. 팀에서 정의한 목록이 있으면 교체)
+# A: '기존 단순 키워드 필터링' 가정용 단어 목록
 KEYWORDS = ['택배', '배송', '반송', '주소', '확인', '인증', '결제', '승인', '계좌', '대출', '과태료', '검찰', '경찰', '환급', '지원금',
             '무료거부', '광고', '이벤트', '카지노', '토토', '보너스', '입금', '바카라', '수익', '청첩', '부고', '건강검진', '통지서']
 
 def load_checker(path, online):
-    ro, re_ = sys.stdout, sys.stderr          # url_checker 는 import 때 stdout 을 detach 하므로 임시 스트림으로 보호
+    ro, re_ = sys.stdout, sys.stderr
     sys.stdout, sys.stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8'), io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
     try:
         sp = importlib.util.spec_from_file_location('uc_under_test', path); mod = importlib.util.module_from_spec(sp); sp.loader.exec_module(mod)
     finally:
         sys.stdout, sys.stderr = ro, re_
-    if not online:                             # 네트워크 없이 정적 규칙만 평가
+    if not online:
         mod.resolve_redirect = lambda url, timeout=3: url
         for n in ('check_virustotal', 'check_virustotal_domain'):
             if hasattr(mod, n): setattr(mod, n, (lambda h, **k: None) if n == 'check_virustotal' else (lambda d, **k: {'success': False}))
@@ -50,7 +50,7 @@ def main():
         ml = float(model.predict_proba(vec.transform([strip(t)]))[0][col] * 100)
         ur = mod.check_message_urls(t)
         us, hu, det = ur.get('max_risk_score', 0), ur.get('has_url', False), ur.get('results', [])
-        h = decide(ml, hu, us, det)
+        h = decide(ml, hu, us, det, text=t)
         rows.append({'id': r.id, 'category': r.category, 'label': r.label_name, 'expected': r.expected_verdict,
                      'A_키워드': '주의' if any(k in t for k in KEYWORDS) else '안전',
                      'B_ML단독': '위험' if ml >= 70 else ('주의' if ml >= 35 else '안전'),
