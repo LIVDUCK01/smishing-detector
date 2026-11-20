@@ -185,8 +185,10 @@ def is_ip_address(domain: str) -> bool:
 
 
 def is_trusted_official_domain(host: str) -> bool:
-    """공식 화이트리스트 검증 (정부·군 기관 .go.kr/.mil.kr만 자동 통과, .ac.kr은 일반 검증)"""
+    """공식 화이트리스트 검증 (.go.kr/.mil.kr 및 대학 공식 루트·www 도메인만 허용)"""
     if host.endswith(('.go.kr', '.mil.kr')):
+        return True
+    if re.fullmatch(r'(?:www\.)?[a-z0-9\-]+\.ac\.kr', host):
         return True
     return any(host == trusted or host.endswith('.' + trusted) for trusted in TRUSTED_DOMAINS)
 
