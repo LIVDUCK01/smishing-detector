@@ -41,6 +41,7 @@ def _is_messenger_url(url: str) -> bool:
 def _is_real_official_host(host: str) -> bool:
     return (
         _is_messenger_url(host)
+        or bool(re.fullmatch(r'(?:www\.)?[a-z0-9\-]+\.ac\.kr', host))
         or any(host == n or host.endswith('.' + n) for n in OFFICIAL)
         or any(host.endswith(s) for s in OFFICIAL_SUFFIX)
     )
