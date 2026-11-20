@@ -25,10 +25,10 @@ from hybrid_logic import decide
 
 app = FastAPI(title="스미싱 실시간 하이브리드 탐지 API (URL 우선)")
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=False, 
+    allow_methods=["*"], 
     allow_headers=["*"]
 )
 
@@ -60,7 +60,7 @@ def root():
 
 @app.post("/diagnose")
 def diagnose(req: MessageRequest, fast: bool = False):
-    """fast=true 이면 외부 조회(리다이렉트·RDAP·VirusTotal) 없이 내부 판정만 반환(수십 ms).
+    """fast=true 이면 외부 조회(리다이렉트·VirusTotal) 없이 내부 판정만 반환(수십 ms).
     프론트에서 fast 로 먼저 1차 결과를 보여주고, 이어서 fast=false 로 최종 결과를 갱신하는 2단계 방식에 쓴다."""
     t0 = time.perf_counter()
     msg = req.message.strip()[:MAX_LEN]
