@@ -9,7 +9,7 @@ main_hybrid.py 와 evaluate.py 가 같은 함수를 쓰므로 서버와 평가 �
      VirusTotal만으로 깨끗하다고 확인된 링크는 문구가 매우 높을 때(85% 이상) '주의'까지만 올린다.
   3) 링크가 없으면 문구만으로는 '위험'을 내지 않고 '주의'까지만 낸다.
   4) 공식 사이트의 브랜드명을 비공식 도메인에 넣었으면 '사칭 도메인'으로 판정한다.
-  5) 링크가 없어도 '메신저 ID 유도+금전 보상', '가족 사칭+번호 변경·금전 요구', '기관 사칭+전화 유도·위협',
+  5) 링크가 없어도 '메신저 ID 유도+금전 보상', '가족 사칭+번호 변경·금전 요구', '기관·금융 사칭+전화 유도·위협',
      '불법 도박·과장 부업 스팸' 패턴이 있으면 특수문자 우회를 제거한 뒤에도 '주의'로 판정한다.
   6) 링크·회신번호·사칭 유도어가 없는 순수 카드 결제·입출금 알림 형식은 문구 점수와 무관하게 '안전'.
 임계값(TH_*, URL_*)은 사전에 정한 초안이며, 평가셋 결과를 보고 사후에 맞춰 조정한 값이 아니다.
@@ -23,6 +23,9 @@ URL_DANGER, URL_SUSPECT = 50, 20                 # URL 위험도 점수 기준
 
 # 정상 메신저 초대 도메인 (단축 URL 오탐 방지)
 MESSENGER_DOMAINS = ('t.me', 'open.kakao.com')
+
+# 대학 공식 루트·www 도메인 패턴 (학생·동아리 하위 서브도메인 제외)
+_AC_KR_ROOT = re.compile(r'^(?:www\.)?[a-z0-9\-]+\.ac\.kr$', re.I)
 
 # ───────────────────── 사칭 도메인 ─────────────────────
 _GENERIC = {'gov', 'post', 'kt', 'ssg', 'ibk', 'auction'}
@@ -38,10 +41,21 @@ def _is_messenger_url(url: str) -> bool:
     return any(host == m or host.endswith('.' + m) for m in MESSENGER_DOMAINS)
 
 
+def _is_ac_kr_official(url_or_host: str) -> bool:
+    if not url_or_host:
+        return False
+    if '://' in url_or_host or '/' in url_or_host:
+        u = url_or_host if url_or_host.startswith(('http://', 'https://')) else 'http://' + url_or_host
+        host = (urlparse(u).hostname or '').lower()
+    else:
+        host = url_or_host.lower()
+    return bool(_AC_KR_ROOT.match(host))
+
+
 def _is_real_official_host(host: str) -> bool:
     return (
         _is_messenger_url(host)
-        or bool(re.fullmatch(r'(?:www\.)?[a-z0-9\-]+\.ac\.kr', host))
+        or _is_ac_kr_official(host)
         or any(host == n or host.endswith('.' + n) for n in OFFICIAL)
         or any(host.endswith(s) for s in OFFICIAL_SUFFIX)
     )
@@ -79,6 +93,8 @@ _MONEY = re.compile(r'송금|입금|이체|결제|기프트\s*카드|문화\s*�
 _AGENCY = re.compile(r'검찰|지검|검사|수사관|경찰|금융감독원|금감원|법원|국세청|금융위|대검')
 _PHONE_NO = re.compile(r'(?:010|070|050\d?|02|03[1-3]|04[1-4]|05[1-5]|06[1-4]|1[568]\d{2})[-\s]?\d{3,4}[-\s]?\d{4}')
 _THREAT = re.compile(r'사건|연루|범죄|대포통장|명의\s*도용|계좌\s*(?:보호|동결|정지|지급정지)|유출|압수|체포|소환|출석|피해자|수배|구속|영장|신고\s*접수')
+_FINANCE_ENTITY = re.compile(r'카드|은행|뱅크|페이|결제|승인|계좌')
+_FINANCE_THREAT = re.compile(r'명의\s*도용|국외\s*승인|해외\s*승인|해외\s*결제|미신청|신고\s*접수|소비자\s*보호|취소\s*문의|본인\s*아닐|수수료|선입금')
 
 # 불법 도박·사행성 및 과장 부업·재택알바 스팸 (리딩방·투자권유 제외 유지)
 _GAMBLING_SPAM = re.compile(
@@ -145,6 +161,11 @@ def text_signals(text: str) -> list:
     if has_agency and (has_phone or has_threat):
         sig.append('기관 사칭 + 전화 유도·위협 표현')
 
+    has_fin = bool(_FINANCE_ENTITY.search(clean) or _FINANCE_ENTITY.search(squashed))
+    has_fin_threat = bool(_FINANCE_THREAT.search(clean) or _FINANCE_THREAT.search(squashed))
+    if has_fin and has_phone and has_fin_threat:
+        sig.append('금융·카드 사칭 + 전화 유도·위협 표현')
+
     if _GAMBLING_SPAM.search(clean) or _GAMBLING_SPAM.search(squashed):
         sig.append('불법 도박·사행성 스팸 문구')
 
@@ -168,14 +189,16 @@ def is_card_approval(text: str) -> bool:
 
 # ───────────────────── 판정 ─────────────────────
 def _item_official(d: dict) -> bool:
-    """URL 1개가 공식 도메인인지 검증 (화이트리스트 + 메신저 공식 초대 링크 동기화)"""
+    """URL 1개가 공식 도메인인지 검증 (화이트리스트 + 메신저·대학 공식 루트 동기화)"""
     if '공식 인증 도메인 화이트리스트 통과' in d.get('risk_factors', []):
         return True
     orig, final = d.get('original_url', ''), d.get('final_url') or d.get('original_url', '')
     if _is_messenger_url(orig) or _is_messenger_url(final):
         return True
+    if _is_ac_kr_official(orig) and _is_ac_kr_official(final):
+        return True
     if is_shortener_url(orig):
-        return (not is_shortener_url(final)) and is_official_url(final)
+        return (not is_shortener_url(final)) and (is_official_url(final) or _is_ac_kr_official(final))
     return is_official_url(orig) and is_official_url(final)
 
 
