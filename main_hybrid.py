@@ -2,7 +2,7 @@
 """
 URL 우선 계층형 판정 서버. 기존 main.py 는 건드리지 않고 이 파일로 따로 실행해 비교한다.
     uvicorn main_hybrid:app --port 8000
-응답 형식은 main.py 와 같고, link_status / verdict_basis / official_checked 필드가 추가됐다.
+응답 형식은 main.py 와 같고, link_status / verdict_basis / signals 필드가 추가됐다.
 """
 import io, os, sys, time, importlib
 import joblib
@@ -25,10 +25,10 @@ from hybrid_logic import decide
 
 app = FastAPI(title="스미싱 실시간 하이브리드 탐지 API (URL 우선)")
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_credentials=False, 
-    allow_methods=["*"], 
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"]
 )
 
@@ -60,7 +60,7 @@ def root():
 
 @app.post("/diagnose")
 def diagnose(req: MessageRequest, fast: bool = False):
-    """fast=true 이면 외부 조회(리다이렉트·VirusTotal) 없이 내부 판정만 반환(수십 ms).
+    """fast=true 이면 외부 조회(리다이렉트·RDAP·VirusTotal) 없이 내부 판정만 반환(수십 ms).
     프론트에서 fast 로 먼저 1차 결과를 보여주고, 이어서 fast=false 로 최종 결과를 갱신하는 2단계 방식에 쓴다."""
     t0 = time.perf_counter()
     msg = req.message.strip()[:MAX_LEN]
@@ -86,10 +86,11 @@ def diagnose(req: MessageRequest, fast: bool = False):
         "has_url": has_url,
         "url_details": details,                                    # 각 URL의 timing_ms / external_mode 포함
         "url_verified_safe": d["link_status"] in ("official", "verified"),   # 기존 필드 호환
-        "link_status": d["link_status"],                       # none / dangerous / suspicious / official / verified / unverified
+        "link_status": d["link_status"],                           # none / dangerous / suspicious / official / verified / unverified
         "verdict": d["verdict"],                                   # 위험 / 주의 / 안전
         "verdict_basis": d["verdict_basis"],                       # URL / 문구 / URL+문구
         "verdict_detail": d["verdict_detail"],
+        "signals": d.get("signals", []),                           # 탐지된 사칭·스팸 조합 신호
         "no_link_notice": not has_url,                             # 프론트에서 '링크 없음 — 문구 기준 참고용' 배지 표시용
         "provisional": bool(fast and has_url),                     # 1차(내부) 판정 — 외부 검증 전
         "stage_ms": {                                              # 단계별 서버 처리 시간
@@ -101,7 +102,7 @@ def diagnose(req: MessageRequest, fast: bool = False):
         "response_time_ms": round((t3 - t0) * 1000, 2),            # 기존 필드 호환
     }
 
-# 로컬 및 클라우드(Render 등) 동적 포트 바인딩 실행부 추가
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8001))
