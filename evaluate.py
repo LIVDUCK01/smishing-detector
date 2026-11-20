@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-평가셋(eval_set.csv)으로 세 방식을 비교한다.
+평가셋(eval_set_121.csv)으로 세 방식을 비교한다.
   A. 키워드 필터링(기존 방식)  B. 문구 ML 단독(기존 main.py 임계값)  C. 하이브리드(URL 우선, hybrid_logic.decide)
 프로젝트 루트(model.pkl, url_checker.py 가 있는 곳)에서 실행:
+  python evaluate.py
   python evaluate.py --eval data_prep\\eval_set.csv
 옵션: --checker <url_checker.py 경로>  --model-dir <model.pkl 폴더>  --online (리다이렉트 추적·VirusTotal 포함. 기본은 오프라인=정적 규칙만)
 """
@@ -34,7 +35,7 @@ def ok(verdict, expected):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--eval', required=True); ap.add_argument('--checker', default='url_checker.py')
+    ap.add_argument('--eval', default='data_prep/eval_set_121.csv'); ap.add_argument('--checker', default='url_checker.py')
     ap.add_argument('--model-dir', default='.'); ap.add_argument('--online', action='store_true'); ap.add_argument('--out', default='.')
     a = ap.parse_args()
 
