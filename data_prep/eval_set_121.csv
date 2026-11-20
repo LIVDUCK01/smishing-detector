@@ -1,4 +1,4 @@
-﻿id,label,category,content,label_name,has_url,expected_verdict
+id,label,category,content,label_name,has_url,expected_verdict
 1,0,정상-공식링크,[Web발신] [한진택배] 고객님의 상품이 내일 배송될 예정입니다. 배송조회 https://www.hanjin.com,정상,True,안전
 2,0,정상-공식링크,[CJ대한통운] 택배가 오늘 오후 배송됩니다. 실시간 위치 확인 https://www.cjlogistics.com,정상,True,안전
 3,0,정상-공식링크,[11번가] 주문하신 상품이 발송되었습니다. 배송 현황은 https://www.11st.co.kr 에서 확인하세요.,정상,True,안전
