@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-평가셋(eval_set_121.csv)으로 세 방식을 비교한다.
+평가셋(eval_set.csv)으로 세 방식을 비교한다.
   A. 키워드 필터링(기존 방식)  B. 문구 ML 단독(기존 main.py 임계값)  C. 하이브리드(URL 우선, hybrid_logic.decide)
 프로젝트 루트(model.pkl, url_checker.py 가 있는 곳)에서 실행:
-  python evaluate.py
   python evaluate.py --eval data_prep\\eval_set.csv
 옵션: --checker <url_checker.py 경로>  --model-dir <model.pkl 폴더>  --online (리다이렉트 추적·VirusTotal 포함. 기본은 오프라인=정적 규칙만)
 """
@@ -11,18 +10,18 @@ import argparse, importlib.util, io, os, re, sys
 import pandas as pd, joblib
 from hybrid_logic import decide
 
-# A: '기존 단순 키워드 필터링' 가정용 단어 목록
+# A: '기존 단순 키워드 필터링' 가정용 단어 목록 (일반적인 스팸 필터가 쓰는 수준으로 가정한 것. 팀에서 정의한 목록이 있으면 교체)
 KEYWORDS = ['택배', '배송', '반송', '주소', '확인', '인증', '결제', '승인', '계좌', '대출', '과태료', '검찰', '경찰', '환급', '지원금',
             '무료거부', '광고', '이벤트', '카지노', '토토', '보너스', '입금', '바카라', '수익', '청첩', '부고', '건강검진', '통지서']
 
 def load_checker(path, online):
-    ro, re_ = sys.stdout, sys.stderr
+    ro, re_ = sys.stdout, sys.stderr          # url_checker 는 import 때 stdout 을 detach 하므로 임시 스트림으로 보호
     sys.stdout, sys.stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8'), io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
     try:
         sp = importlib.util.spec_from_file_location('uc_under_test', path); mod = importlib.util.module_from_spec(sp); sp.loader.exec_module(mod)
     finally:
         sys.stdout, sys.stderr = ro, re_
-    if not online:
+    if not online:                             # 네트워크 없이 정적 규칙만 평가
         mod.resolve_redirect = lambda url, timeout=3: url
         for n in ('check_virustotal', 'check_virustotal_domain'):
             if hasattr(mod, n): setattr(mod, n, (lambda h, **k: None) if n == 'check_virustotal' else (lambda d, **k: {'success': False}))
@@ -35,7 +34,7 @@ def ok(verdict, expected):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--eval', default='data_prep/eval_set_121.csv'); ap.add_argument('--checker', default='url_checker.py')
+    ap.add_argument('--eval', required=True); ap.add_argument('--checker', default='url_checker.py')
     ap.add_argument('--model-dir', default='.'); ap.add_argument('--online', action='store_true'); ap.add_argument('--out', default='.')
     a = ap.parse_args()
 
